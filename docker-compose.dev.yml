@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Vue.js Frontend (Development)
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - dolarito-network
+    restart: unless-stopped
+
+  # .NET Core Backend (Development)
+  backend-dev:
+    build:
+      context: ../DolaritoBE
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000;https://+:5001
+      - ConnectionStrings__DefaultConnection=Host=database;Port=5432;Database=dolarito;Username=dolarito_user;Password=dolarito_password;
+    volumes:
+      - ../DolaritoBE:/app
+      - /app/bin
+      - /app/obj
+    depends_on:
+      - database
+    networks:
+      - dolarito-network
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  database:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: dolarito
+      POSTGRES_USER: dolarito_user
+      POSTGRES_PASSWORD: dolarito_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - dolarito-network
+    restart: unless-stopped
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - dolarito-network
+    restart: unless-stopped
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+
+networks:
+  dolarito-network:
+    driver: bridge
